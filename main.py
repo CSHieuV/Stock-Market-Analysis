@@ -76,9 +76,9 @@ apple_chart = create_chart(apple_monthly_2020_2022, 'Apple Monthly Candlestick C
 microsoft_chart = create_chart(microsoft_monthly_2020_2022, 'Microsoft Monthly Candlestick Chart (2020-2022)', '#35C730', '#C73535')
 samsung_chart = create_chart(samsung_monthly_2020_2022, 'Samsung Monthly Candlestick Chart (2020-2022)', '#35C730', '#C73535')
 
-# apple_chart.show()
-# microsoft_chart.show()
-# samsung_chart.show()
+apple_chart.show()
+microsoft_chart.show()
+samsung_chart.show()
 
 
 range_buttons = [
