@@ -138,7 +138,14 @@ microsoft_line_chart_colorblind2 = create_chart2(microsoft_monthly_2007_2009,
 samsung_line_chart_colorblind2 = create_chart2(samsung_monthly_2007_2009, "Samsung Stock Price Movement 2007 - 2009 (Monthly)",
                                                "#009E73", "#D55E00", "#56B4E9")
 
-
+# apple_line_chart_default2.show()
+# microsoft_line_chart_default2.show()
+# samsung_line_chart_default2.show()
+#
+#
+# apple_line_chart_colorblind2.show()
+# microsoft_line_chart_colorblind2.show()
+# samsung_line_chart_colorblind2.show()
 
 
 
