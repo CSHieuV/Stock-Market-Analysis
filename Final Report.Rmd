@@ -1,0 +1,1150 @@
+---
+title: '**Midterm Report: An Analysis on Select Stock Market Shares**'
+author: "Eric Nguyen, Kevin Zhao, Hieu Vu"
+date: "Due: 2023-04-16"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+    theme: paper
+    code_folding: show
+runtime: shiny
+resource_files:
+- FinalReport.R
+---
+
+```{r}
+# ------------------------------------------------------------------------
+
+# Load Applicable Libraries
+library(tidyverse)
+library(dplyr)
+library(lubridate)
+library(plotly)
+library(foreign)
+library(ggplot2)
+library(shiny)
+library(knitr)
+library(shinythemes)
+library(terra)
+
+# ------------------------------------------------------------------------
+
+# Importing our Data Set
+apple <- read.csv('apple.csv')
+microsoft <- read.csv('MicroSoft.csv')
+samsung <- read.csv('Samsung.csv')
+
+# ------------------------------------------------------------------------
+
+# Manipulating the data sets by leveraging the lubridate package in order to track stocks over time:
+
+# ----------------------------------------------------------
+
+# Create a new column of the date for each observation
+apple_date_time <- apple
+apple_date_time$newdate = ymd(apple_date_time$Date)
+apple_date_time$year = year(apple_date_time$newdate)
+
+# Filter out observations from years 2020-2022
+apple_date_time <- apple_date_time %>%
+  filter(year == 2020 | year == 2021 | year == 2022)
+
+# ----------------------------------------------------------
+
+# Create a new column of the date for each observation
+microsoft_date_time <- microsoft
+microsoft_date_time$newdate = ymd(microsoft_date_time$Date)
+microsoft_date_time$year = year(microsoft_date_time$newdate)
+
+# Filter out observations from years 2020-2022
+microsoft_date_time <- microsoft_date_time %>%
+  filter(year == 2020 | year == 2021 |year == 2022)
+
+# ----------------------------------------------------------
+
+# Create a new column of the date for each observation
+samsung_date_time <- samsung
+samsung_date_time$newdate = ymd(samsung_date_time$Date)
+samsung_date_time$year = year(samsung_date_time$newdate)
+
+# Filter out observations from years 2020-2022
+samsung_date_time <- samsung_date_time %>%
+  filter(year == 2020 | year == 2021 |year == 2022)
+
+# ----------------------------------------------------------
+
+# EDA Data frame now includes Month, Day, and Year column
+EDA <- apple_date_time
+EDA$month = month(EDA$newdate)
+EDA$day = day(EDA$newdate)
+
+drop <- c("Date", "Volume", "newdate", "year", "month", "day")
+
+# Filter it for March 17th, 2022
+EDA <- EDA %>%
+  filter(month == 3 & day == 17 & year == 2022) %>%
+  select(-c(drop))%>%
+  gather(key = "Indicators", value = "Dollars")
+
+# Create the Chart
+ggplot(EDA, aes(x = reorder(Indicators, -Dollars), y = Dollars, fill = Indicators)) +
+  geom_bar(stat = "identity") +
+  labs(x = "Stock Price Indicators", y = "Dollars", title = "March 17th, 2022: Apple Stock Price Statistics") +
+  theme_bw() +
+  scale_fill_manual(values = c("#FFE2D1", "#E1F0C4", "#6BAB90", "#0D5C63", "#5E4C5A"))
+
+# ------------------------------------------------------------------------
+
+# ------------------------------------------------------------------------
+
+# Create Year
+apple_time <- apple
+apple_time$newdate = ymd(apple_time$Date)
+apple_time$year = year(apple_time$newdate)
+
+# Filter Year (2007 - 2009)
+apple_filtered_data <- apple_time %>% 
+  filter(year >= 2007 & year <= 2009)
+
+apple_filtered_data$Date <- as.Date(apple_filtered_data$Date)
+
+# Summarize
+apple_monthly <- apple_filtered_data %>%
+  mutate(month = format(Date, "%Y-%m")) %>%
+  group_by(month) %>%
+  summarize(open = first(Open),
+            high = max(High),
+            low = min(Low),
+            close = last(Close))
+
+# ------------------------------------------------------------------------
+
+# Create Year
+microsoft_time <- microsoft
+microsoft_time$newdate = ymd(microsoft_time$Date)
+microsoft_time$year = year(microsoft_time$newdate)
+
+# Filter Year (2007 - 2009)
+microsoft_filtered_data <- microsoft_time %>% 
+  filter(year >= 2007 & year <= 2009)
+
+microsoft_filtered_data$Date <- as.Date(microsoft_filtered_data$Date)
+
+# Summarize
+microsoft_monthly <- microsoft_filtered_data %>%
+  mutate(month = format(Date, "%Y-%m")) %>%
+  group_by(month) %>%
+  summarize(open = first(Open),
+            high = max(High),
+            low = min(Low),
+            close = last(Close))
+
+# ------------------------------------------------------------------------
+
+# Create Year
+samsung_time <- samsung
+samsung_time$newdate = ymd(samsung_time$Date)
+samsung_time$year = year(samsung_time$newdate)
+
+# Filter Year (2007 - 2009)
+samsung_filtered_data <- samsung_time %>% 
+  filter(year >= 2007 & year <= 2009)
+
+samsung_filtered_data$Date <- as.Date(samsung_filtered_data$Date)
+
+# Summarize
+samsung_monthly <- samsung_filtered_data %>%
+  mutate(month = format(Date, "%Y-%m")) %>%
+  group_by(month) %>%
+  summarize(open = first(Open),
+            high = max(High),
+            low = min(Low),
+            close = last(Close))
+
+# ------------------------------------------------------------------------
+
+# Create the buttons on the interactive chart
+range_buttons <- list(
+  list(count = 1, label = "1 mo", step = "month", stepmode = "backward"),
+  list(count = 3, label = "3 mo", step = "month", stepmode = "backward"),
+  list(count = 6, label = "6 mo", step = "month", stepmode = "backward"),
+  list(count = 1, label = "1 yr", step = "year", stepmode = "backward"),
+  list(step = "all")
+)
+
+# ------------------------------------------------------------------------
+
+# Function to create the chart with specified colors
+create_chart <- function(data, title, increasing_color, decreasing_color, line_color) {
+  chart <- plot_ly(data, type = "candlestick",
+                   x = ~month,
+                   open = ~open, close = ~close,
+                   high = ~high, low = ~low, name = "Price",
+                   increasing = list(line = list(color = increasing_color), fillcolor = increasing_color),
+                   decreasing = list(line = list(color = decreasing_color), fillcolor = decreasing_color)) %>%
+    add_lines(x = ~month, y = ~high, name = "High Price",
+              line = list(color = line_color)) %>%
+    layout(xaxis = list(rangeselector = list(buttons = range_buttons, x = 0, y = 1.5),
+                        type = "date", title = "Month",
+                        rangeslider = list(type = "date")),
+           yaxis = list(title = "High Price"),
+           title = title)
+  return(chart)
+}
+
+# Function to create the chart with specified colors
+create_chart2 <- function(data, title, increasing_color, decreasing_color, line_color) {
+  chart2 <- plot_ly(data, type = "candlestick",
+                    x = ~month,
+                    open = ~open, close = ~close,
+                    high = ~high, low = ~low, name = "Price",
+                    increasing = list(line = list(color = increasing_color), fillcolor = increasing_color),
+                    decreasing = list(line = list(color = decreasing_color), fillcolor = decreasing_color)) %>%
+    add_lines(x = ~month, y = ~high, name = "High Price",
+              line = list(color = line_color)) %>%
+    layout(xaxis = list(rangeselector = list(buttons = range_buttons, x = 0, y = 1.5),
+                        type = "date", title = "Month",
+                        rangeslider = list(type = "date")),
+           yaxis = list(title = "High Price"),
+           title = title)
+  return(chart2)
+}
+
+
+# ------------------------------------------------------------------------
+
+# Create chart definitions with default colors
+apple_line_chart_default2 <- create_chart(apple_monthly, "Apple Stock Price Movement 2007 - 2009 (Monthly)", "green", "red", "blue")
+microsoft_line_chart_default2 <- create_chart(microsoft_monthly, "Microsoft Stock Price Movement 2007 - 2009 (Monthly)", "green", "red", "blue")
+samsung_line_chart_default2 <- create_chart(samsung_monthly, "Samsung Stock Price Movement 2007 - 2009 (Monthly)", "green", "red", "blue")
+
+# Create chart definitions with colorblind-friendly colors
+apple_line_chart_colorblind2 <- create_chart(apple_monthly, "Apple Stock Price Movement 2007 - 2009 (Monthly)", "#009E73", "#D55E00", "#56B4E9")
+microsoft_line_chart_colorblind2 <- create_chart(microsoft_monthly, "Microsoft Stock Price Movement 2007 - 2009 (Monthly)", "#009E73", "#D55E00", "#56B4E9")
+samsung_line_chart_colorblind2 <- create_chart(samsung_monthly, "Samsung Stock Price Movement 2007 - 2009 (Monthly)", "#009E73", "#D55E00", "#56B4E9")
+
+
+# ------------------------------------------------------------------------
+
+# ------------------------------------------------------------------------
+
+# Create Date
+apple_date_time$Date <- as.Date(apple_date_time$Date)
+
+# Summarize
+apple_monthly <- apple_date_time %>%
+  mutate(month = format(Date, "%Y-%m")) %>%
+  group_by(month) %>%
+  summarize(open = first(Open),
+            high = max(High),
+            low = min(Low),
+            close = last(Close))
+
+# ------------------------------------------------------------------------
+
+# Create Date
+microsoft_date_time$Date <- as.Date(microsoft_date_time$Date)
+
+# Summarize
+microsoft_monthly <- microsoft_date_time %>%
+  mutate(month = format(Date, "%Y-%m")) %>%
+  group_by(month) %>%
+  summarize(open = first(Open),
+            high = max(High),
+            low = min(Low),
+            close = last(Close))
+
+# ------------------------------------------------------------------------
+
+# Create Date
+samsung_date_time$Date <- as.Date(samsung_date_time$Date)
+
+# Summarize
+samsung_monthly <- samsung_date_time %>%
+  mutate(month = format(Date, "%Y-%m")) %>%
+  group_by(month) %>%
+  summarize(open = first(Open),
+            high = max(High),
+            low = min(Low),
+            close = last(Close))
+
+# ------------------------------------------------------------------------
+
+# Create the buttons on the interactive chart
+range_buttons <- list(
+  list(count = 1, label = "1 mo", step = "month", stepmode = "backward"),
+  list(count = 3, label = "3 mo", step = "month", stepmode = "backward"),
+  list(count = 6, label = "6 mo", step = "month", stepmode = "backward"),
+  list(count = 1, label = "1 yr", step = "year", stepmode = "backward"),
+  list(step = "all")
+)
+
+# ------------------------------------------------------------------------
+
+
+
+# ------------------------------------------------------------------------
+
+# Create chart definitions with default colors
+apple_line_chart_default <- create_chart(apple_monthly, "Apple Stock Price Movement 2020 - 2022 (Monthly)", "green", "red", "blue")
+microsoft_line_chart_default <- create_chart(microsoft_monthly, "Microsoft Stock Price Movement 2020 - 2022 (Monthly)", "green", "red", "blue")
+samsung_line_chart_default <- create_chart(samsung_monthly, "Samsung Stock Price Movement 2020 - 2022 (Monthly)", "green", "red", "blue")
+
+# Create chart definitions with colorblind-friendly colors
+apple_line_chart_colorblind <- create_chart(apple_monthly, "Apple Stock Price Movement 2020 - 2022 (Monthly)", "#009E73", "#D55E00", "#56B4E9")
+microsoft_line_chart_colorblind <- create_chart(microsoft_monthly, "Microsoft Stock Price Movement 2020 - 2022 (Monthly)", "#009E73", "#D55E00", "#56B4E9")
+samsung_line_chart_colorblind <- create_chart(samsung_monthly, "Samsung Stock Price Movement 2020 - 2022 (Monthly)", "#009E73", "#D55E00", "#56B4E9")
+
+# ------------------------------------------------------------------------
+# Question 1
+
+# Create the buttons
+range_buttons <- list(
+  list(count = 1, label = "1 mo", step = "month", stepmode = "backward"),
+  list(count = 3, label = "3 mo", step = "month", stepmode = "backward"),
+  list(count = 6, label = "6 mo", step = "month", stepmode = "backward"),
+  list(count = 1, label = "1 yr", step = "year", stepmode = "backward"),
+  list(step = "all")
+)
+
+# ------------------------------------------------------------------------
+
+# Function to create the chart with specified colors
+create_chart <- function(data, title, increasing_color, decreasing_color, line_color) {
+  chart <- plot_ly(data, type = "candlestick",
+                   x = ~month,
+                   open = ~open, close = ~close,
+                   high = ~high, low = ~low, name = "Price",
+                   increasing = list(line = list(color = increasing_color), fillcolor = increasing_color),
+                   decreasing = list(line = list(color = decreasing_color), fillcolor = decreasing_color)) %>%
+    add_lines(x = ~month, y = ~high, name = "High Price",
+              line = list(color = line_color)) %>%
+    layout(xaxis = list(rangeselector = list(buttons = range_buttons),
+                        type = "date", title = "Month",
+                        rangeslider = list(type = "date")),
+           yaxis = list(title = "High Price"),
+           title = title)
+  return(chart)
+}
+
+# ------------------------------------------------------------------------
+
+# Create chart definitions with default colors
+apple_line_chart_default <- create_chart(apple_monthly, "Apple Stock Price Movement 2020 - 2022 (Monthly)", "#99B668", "#E03616", "#9AC4F8")
+microsoft_line_chart_default <- create_chart(microsoft_monthly, "Microsoft Stock Price Movement 2020 - 2022 (Monthly)", "#99B668", "#E03616", "#9AC4F8")
+samsung_line_chart_default <- create_chart(samsung_monthly, "Samsung Stock Price Movement 2020 - 2022 (Monthly)", "#99B668", "#E03616", "#9AC4F8")
+
+# Create chart definitions with colorblind-friendly colors
+apple_line_chart_colorblind <- create_chart(apple_monthly, "Apple Stock Price Movement 2020 - 2022 (Monthly)", "#009E73", "#D55E00", "#56B4E9")
+microsoft_line_chart_colorblind <- create_chart(microsoft_monthly, "Microsoft Stock Price Movement 2020 - 2022 (Monthly)", "#009E73", "#D55E00", "#56B4E9")
+samsung_line_chart_colorblind <- create_chart(samsung_monthly, "Samsung Stock Price Movement 2020 - 2022 (Monthly)", "#009E73", "#D55E00", "#56B4E9")
+
+
+# ------------------------------------------------------------------------
+#Question 2
+
+# Create Year
+apple_time <- apple
+apple_time$newdate = ymd(apple_time$Date)
+apple_time$year = year(apple_time$newdate)
+
+# Filter Year (2007 - 2009)
+apple_filtered_data <- apple_time %>% 
+  filter(year >= 2007 & year <= 2009)
+
+apple_filtered_data$Date <- as.Date(apple_filtered_data$Date)
+
+# Summarize
+apple_monthly2 <- apple_filtered_data %>%
+  mutate(month = format(Date, "%Y-%m")) %>%
+  group_by(month) %>%
+  summarize(open = first(Open),
+            high = max(High),
+            low = min(Low),
+            close = last(Close))
+
+# ------------------------------------------------------------------------
+
+# Create Year
+microsoft_time <- microsoft
+microsoft_time$newdate = ymd(microsoft_time$Date)
+microsoft_time$year = year(microsoft_time$newdate)
+
+# Filter Year (2007 - 2009)
+microsoft_filtered_data <- microsoft_time %>% 
+  filter(year >= 2007 & year <= 2009)
+
+microsoft_filtered_data$Date <- as.Date(microsoft_filtered_data$Date)
+
+# Summarize
+microsoft_monthly2 <- microsoft_filtered_data %>%
+  mutate(month = format(Date, "%Y-%m")) %>%
+  group_by(month) %>%
+  summarize(open = first(Open),
+            high = max(High),
+            low = min(Low),
+            close = last(Close))
+
+# ------------------------------------------------------------------------
+
+# Create Year
+samsung_time <- samsung
+samsung_time$newdate = ymd(samsung_time$Date)
+samsung_time$year = year(samsung_time$newdate)
+
+# Filter Year (2007 - 2009)
+samsung_filtered_data <- samsung_time %>% 
+  filter(year >= 2007 & year <= 2009)
+
+samsung_filtered_data$Date <- as.Date(samsung_filtered_data$Date)
+
+# Summarize
+samsung_monthly2 <- samsung_filtered_data %>%
+  mutate(month = format(Date, "%Y-%m")) %>%
+  group_by(month) %>%
+  summarize(open = first(Open),
+            high = max(High),
+            low = min(Low),
+            close = last(Close))
+
+# ------------------------------------------------------------------------
+
+# Create the buttons on the interactive chart
+range_buttons <- list(
+  list(count = 1, label = "1 mo", step = "month", stepmode = "backward"),
+  list(count = 3, label = "3 mo", step = "month", stepmode = "backward"),
+  list(count = 6, label = "6 mo", step = "month", stepmode = "backward"),
+  list(count = 1, label = "1 yr", step = "year", stepmode = "backward"),
+  list(step = "all")
+)
+
+# ------------------------------------------------------------------------
+
+# Function to create the chart with specified colors
+create_chart2 <- function(data, title, increasing_color, decreasing_color, line_color) {
+  chart2 <- plot_ly(data, type = "candlestick",
+                    x = ~month,
+                    open = ~open, close = ~close,
+                    high = ~high, low = ~low, name = "Price",
+                    increasing = list(line = list(color = increasing_color), fillcolor = increasing_color),
+                    decreasing = list(line = list(color = decreasing_color), fillcolor = decreasing_color)) %>%
+    add_lines(x = ~month, y = ~high, name = "High Price",
+              line = list(color = line_color)) %>%
+    layout(xaxis = list(rangeselector = list(buttons = range_buttons, x = 0, y = 1.5),
+                        type = "date", title = "Month",
+                        rangeslider = list(type = "date")),
+           yaxis = list(title = "High Price"),
+           title = title)
+  return(chart2)
+}
+
+
+# ------------------------------------------------------------------------
+
+# Create chart definitions with default colors
+apple_line_chart_default2 <- create_chart(apple_monthly2, "Apple Stock Price Movement 2007 - 2009 (Monthly)", "#99B668", "#E03616", "#9AC4F8")
+microsoft_line_chart_default2 <- create_chart(microsoft_monthly2, "Microsoft Stock Price Movement 2007 - 2009 (Monthly)", "#99B668", "#E03616", "#9AC4F8")
+samsung_line_chart_default2 <- create_chart(samsung_monthly2, "Samsung Stock Price Movement 2007 - 2009 (Monthly)", "#99B668", "#E03616", "#9AC4F8")
+
+# Create chart definitions with colorblind-friendly colors
+apple_line_chart_colorblind2 <- create_chart(apple_monthly2, "Apple Stock Price Movement 2007 - 2009 (Monthly)", "#009E73", "#D55E00", "#56B4E9")
+microsoft_line_chart_colorblind2 <- create_chart(microsoft_monthly2, "Microsoft Stock Price Movement 2007 - 2009 (Monthly)", "#009E73", "#D55E00", "#56B4E9")
+samsung_line_chart_colorblind2 <- create_chart(samsung_monthly2, "Samsung Stock Price Movement 2007 - 2009 (Monthly)", "#009E73", "#D55E00", "#56B4E9")
+
+# ------------------------------------------------------------------------
+ui <- navbarPage("Stock Price Case Study",
+                 tabPanel("Home",
+                          fluidRow(
+                            column(12,      
+                                   #style = "background-image: url('https://images.pexels.com/photos/6801648/pexels-photo-6801648.jpeg?cs=srgb&dl=pexels-anna-nekrashevich-6801648.jpg&fm=jpg'); background-size: 100% 100%;",
+                                   font_family = "Playfair Display",
+                                   br(),
+                                   br(),
+                                   br(),
+                                   br(),
+                                   br(),
+                                   br(),
+                                   h1(strong("An Analysis on Select Stock Market Shares"), align = "center"),
+                                   h2(strong("Authors: Eric Nguyen | Hieu Vu | Kevin Zhao"), align = "center"),
+                                   br(),
+                                   br(),
+                                   br(),
+                                   br(),
+                                   br(),
+                                   br(),
+                                   h1(strong("DS 2003: Communciating with Data"), align = "center"),
+                                   h2(strong("Professor Natalie Kupperman | Teaching Assistant Aubrey Winger"), align = "center"),
+                                   h2(strong("University of Virginia | Spring 2023"), align = "center"),
+                                   br(),
+                                   br(),
+                                   br(),
+                                   br(),
+                                   br(),
+                                   br(),
+                                   br(),
+                                   br(),
+                                   br(),
+                                   br(),
+                                   br(),
+                                   br()
+                            ),
+                          )
+                 ),
+                 
+                 # ------------------------------------------------------------------------
+                 
+                 tabPanel("Introduction",
+                          fluidRow(column(12,
+                                          h1("Executive Summary", align = "justified"),
+                                          tags$blockquote(style = "text-align: justify;", HTML("The stock market refers to several exchanges in which shares of publicly held companies are bought and sold, according to <a href='https://www.investopedia.com/terms/s/stockmarket.asp'>Investopedia</a>. With its strong influence on the economy, consumers are given (or lack thereof) the confidence to make purchases; and, vice versa, as the economy continues to evolve, the stock market is a reflection of it. Companies, competitors, and other stakeholders seek advice on the patterns that may arise from the data. This report aims to analyze the trends that are reflected in Apple, Microsoft, and Samsung stocks and offer an interpretation of the results collected. The stakeholders of this report are audiences who have an active interest in tech companies' performances, potential investors, and general stock market enthusiasts. Readers should gain an understanding of the key findings that trends (recovery patterns) for each company in the past few years and an understanding of past trends due to product releases, government intervention/involvement, economic factors, etc.")),
+                                          tags$blockquote(style = "text-align: justify;", tags$strong("Keywords:"), "Stock, Trends, Analysis."),
+                                          br(),
+                                          br(),
+                                          h1("Data Sets & Cleaning", align = "justified"),
+                                          tags$blockquote(style = "text-align: justify;", HTML("Below are the data sets used, both linked and dated:")),
+                                          tableOutput("myTable"),
+                                          br(),
+                                          br(),
+                                          h1("Background", align = "justified"),
+                                          tags$blockquote(style = "text-align: justify;", HTML("As students in Data Science (as well as Computer Science) graduating in the next couple of years, we are interested in 'Big Tech' companies and how they are doing financially. Especially with today's economy, we wondered how each company differed from each other and if there were any common trends. The massive layoffs tech companies are facing, coupled with the newly collapsed Silicon Valley Bank, prompted questions in the reliability and trends in these companies for us. After establishing research questions (listed in the section below), we searched for a data set to reference.
+<br><br>
+The data set originally chosen for this research was of the S&P 500, which recorded each company's statistics (price, revenue, earning, 52 week high, 52 week low, etc.). However, the data recorded was over one day of the entire year, which we found to be insufficient in analyzing for trends over a time period. Because of this, we continued to look for a data set that was representative of a long period of time while maintaining the key statistics as the original data set we found.
+<br><br>
+We attempted to find a data set that recorded multiple companies over multiple years, however, there did not seem to be an appropriate data set that contained all of this. We changed our search queries to include only one company over multiple years and successfully found `apple.csv`. From there, we searched for data sets by the same author and found `MicroSoft.csv` and `Samsung.csv`.
+<br><br>
+These data sets are sufficient for research because they hold data over a long period of time, highlight key statistics, and are from the same author, which reduces bias we may have had from compiling data from different sources. They also have an extensive history, dating back to 1980, which was useful from tracking long term patterns (although, this was not needed for our research questions). This makes the new data sets much more versatile than the original data set we referenced as they can be graphed and interpreted and ultimately was the reason we selected them to conduct our research.
+<br><br>
+The time period for the first question (2020-2022) was picked because all three technology stocks were highly volatile during the COVID time period, which makes this particular time period interesting and analysis heavy. Similarly, we picked 2007 - 2009 for question two because this was when the last recession happened and technology stocks were also very volatile during this time period which allows for in depth analysis as well.
+")),
+                                          br(),
+                                          br(),
+                                          h1("Research Questions", align = "justified"),
+                                          tags$blockquote(style = "text-align: justify;", HTML("1. What are the differences between Apple, Microsoft, and Samsung&#39;s stocks between 2020-2022?
+                                                             <br><br>
+                                                             2. Are there any major trends in Apple, Microsoft, and Samsung stocks between 2007-2009?")),
+                                          br(),
+                                          br(),
+                                          h1("EDA: Data Descriptives", align = "justified"),
+                                          tags$blockquote(style = "text-align: justify;", HTML("Below are the variables recorded in each of the data sets. The chart displays data from Apple's stock prices on March 17th, 2022 (randomly selected). The columns are ordered from greatest to least in order to emphasize the definitions, as listed below. Note: Because the price values are very similar, the differences in the columns will be minuscule.
+<br><br>
+<li>Date: is the day in which observations are recorded.</li>
+<li>Open: is the price of the first transaction at the start of the business day.</li>
+<li>High: is the price of the most expensive transaction of the business day.</li>
+<li>Low: is the price of the least expensive transaction of the business day.</li>
+<li>Close: is the price of the last transaction at the end of the business day.</li>
+<li>Adjusted Close: The closing price of shares at the end of each day after accounting for factors such as dividends, stock splits, and new stock offerings.</li>
+<li>Volume: The number of shares traded  in a particular stock for each day.</li>")),
+                                          br(),
+                                          plotOutput("background_graph"),
+                                          br(),
+                                          br(),
+                                          h1("EDA: Summary Statistics Table", align = "justified"),
+                                          tags$blockquote(style = "text-align: justify;", HTML("Below is a table displaying the summary statistics of the the Apple dataset. This include keys statistics of each of the variables defined above, including the  Minimum, 1st Quartile, Median, Mean, 3rd Quartile, and Max. Please note that the Apple data set records stock prices from 1980, when Apple was first created. Because of this, value susceptible to change by outliers may not be an accurate representation of today's stock market value. This summary statistics table is merely used as a reference for this particular data set and should not be applied to other analyses other than this case study.")),
+                                          tableOutput("summary_stat_table")),
+                          
+                          )),
+                 
+                 # ------------------------------------------------------------------------
+                 
+                 tabPanel("Question 1",
+                          fluidRow(
+                            column(12,
+                                   h1("Developing Our Graphs:", align = "justify"),
+                                   tags$blockquote(style = "text-align: justify;", HTML("In each of the original data sets, there was a <b>Date</b> column of type <b>character</b> rather than of type <b>double</b>. Because of this, we struggled plotting our data over a period of time because we could not compare string values and sort them accordingly. We searched for alternatives to this and leveraged the <b>lubridate</b> package to convert this character column into a number column.
+<br><br>
+As shown in the <b>CODE</b> section, we created a new data frame for each company in order to maintain the integrity of the original data set, then created a new column called <b>newdate</b>, which uses the <b>ymd()</b> function, to convert the character date into a numerical date. After converting the entire date, we created a new column called <b>year</b> that only stores the year of the <b>newdate</b>. We then use this column to filter out any years other than 2020, 2021, and 2022 in order to narrow our data set.
+<br><br>
+When creating our graphs, we concluded that a line graph would best summarize this data because it tracks numbers of time and is read easily by the average consumer. However, we also wanted to represent all the data set variables so that advanced audiences could benefit as well. Because of this, we created a Candle Stick graph with a line graph laid behind it. It is simple, yet very effective at communicating results. The candle stick graph is a more advanced way to interpret stock market data and is geared towards expects in the field, since it displays four data points and conveys nearly the entire data set. These graphs leverage the plotly package and highlight the monthly trends. Users may interact with the graph and use the slider at the bottom to zoom in for better and easier analysis. Values represented in the Candle Stick chart include the following: High price, Low price, Open price, and Closing price. For readers who would like a simplified summary, refer to the line graph which displays the trends in each company. View the <b>CODE</b> section to better understand the chart, if necessary.
+<br><br>
+Candlestick graphs are a type of financial chart used to represent the movement of an asset's price over time. They consist of a series of candle-shaped bars that represent the opening, closing, high, and low prices of an asset over a specified period. To conduct our study, each candlestick represents price movement of a stock over a month period. 
+<br><br>
+Each candlestick has two main parts: the body and the wick. The body represents the difference between the opening and closing prices of the asset and the beginning and end of each month, while the wick (or shadow) represents the range between the high and low prices during the month. If the closing price is higher than the opening price, the body is usually colored green and if the closing price is lower than the opening price, the body is usually colored red.
+<br><br>
+To read candlestick graphs, one needs to focus on the patterns formed by the candlesticks. For example, a long green candlestick indicates that the price of the asset increased significantly during the period, while a long red candlestick indicates that the price decreased significantly. A small body with long wicks indicates a period of indecision, where neither buyers nor sellers had the upper hand.")),
+                                   br(),
+                                   br(),
+                                   h1("Question 1: What are the differences between Apple, Microsoft, and Samsung's stocks between 2020-2022?"),
+                                   div(style = "margin-bottom: 85px;"),
+                                   sidebarLayout(
+                                     sidebarPanel(
+                                       radioButtons("stock", "Select Stock",
+                                                    choices = list("Apple" = "apple", "Microsoft" = "microsoft", "Samsung" = "samsung"),
+                                                    selected = "apple"),
+                                       checkboxInput("colorblind", "Colorblind-friendly option", value = FALSE),
+                                       actionButton("toggle_code1", "Toggle Question 1 Graph Code")
+                                     ),
+                                     mainPanel(
+                                       plotlyOutput("stock_graph", height = "600px"),
+                                       verbatimTextOutput("code_text1")
+                                     )
+                                   ),
+                                   br(),
+                                   br(),
+                                   h2("Case Study Analysis", align = "justified"),
+                                   tableOutput("TableQuestion1"),
+                                   tags$blockquote(style = "text-align: justify;", HTML(
+                                     "It's interesting that all three companies reach their respective minimums on the same day; in March 2020, markets in all sectors reach their low due to uncertainty with the newly arrived pandemic. The Federal Reserve, in response to Coronavirus, began to inflate the market to adjust the steep and sudden decline. In this regard, all three companies are alike, having all been affected. The differences between the three companies are primarily in the pattern in which they recover.
+<br><br>
+Throughout 2020 to 2022, Apple stocks have generally seen an inconsistent increase (in comparison to the other companies) in value. On March 23, 2020, shares of the stock reached an absolute minimum of $57.12, the lowest of all three companies. From that point on, Apple has numerous increases/decreases. On January 4th, 2022, after 2 years and 10 months, Apple reached its absolute maximum during the 3 year period at $182.94. This shows a 320.27% increase of their lowest point to their highest point. Although there is no singular or definitive cause, the trend with Apple's data can be attributed to the yearly iPhone release in approximately September/October. Because of this, stock prices generally increase around this time, as well as the end of year holiday season as consumers are purchasing holiday gifts. The chart seems to indicate that in its off season of product launches, Apple stocks decrease a little. 
+<br><br>
+Contrastingly, Microsoft stocks have an absolute minimum of $140.57 on March 23, 2020. Stock prices continue to increase, but with more inconsistent peaks in comparison to Apple, as evidenced by more green and red candles. With an absolute maximum of $349.67 on November 22nd, 2021, Microsoft stocks begin to decline earlier than Apple. After calculations, Microsoft shows a 248.75% increase from the minimum to the maximum. It's much harder to attribute any trend with Microsoft, as they release products under the Surface lineup, Microsoft Office Tools, Xbox, Windows OS, Minecraft, etc. As such, there is not a main release date as with Apple; products seem to be released under a more routine schedule given the many categories Microsoft controls, which is reflected in the steady and consistent increase in the Candle Chart.
+<br><br>
+Samsung reaches an absolute minimum of $43550 per stock on March 23, 2020. After going through the most consistent and steady recovery, stock prices significantly and rapidly increased to $96800 on January 11th, 2021. Spanning 10 months, Samsung reaches its maximum of the 3 year period, but steadily decreases in value after that point. We see an earlier maximum in comparison to the other two companies, most likely due to the annual CES (Consumer Electronics Show). In this event, Samsung displays innovative technology that spikes their stock prices. While Samsung is a reputable tech company, they do not have nearly the consumer reach as Apple and Microsoft, which can explain the decrease in stocks afterward.
+<br><br>
+From this data, we can conclude that each company has a different marketing strategy which affects how their stocks perform. Certainly, each strategy has advantages and disadvantages, but there does not seem to be one winning company as all are doing exceptionally well in comparison to other technology companies. Stakeholders should be aware of these differences and choose to invest in whichever one fits their interests."))
+                            ),
+                          )
+                 ),
+                 
+                 # ------------------------------------------------------------------------
+                 
+                 tabPanel("Question 2",
+                          fluidRow(
+                            column(12,
+                                   h1("Developing Our Graphs:", align = "justify"),
+                                   tags$blockquote(style = "text-align: justify;", HTML("In each of the original data sets, there was a <b>Date</b> column of type <b>character</b> rather than of type <b>double</b>. Because of this, we struggled plotting our data over a period of time because we could not compare string values and sort them accordingly. We searched for alternatives to this and leveraged the <b>lubridate</b> package to convert this character column into a number column.
+<br><br>
+As shown in the <b>CODE</b> section, we created a new data frame for each company in order to maintain the integrity of the original data set, then created a new column called <b>newdate</b>, which uses the <b>ymd()</b> function, to convert the character date into a numerical date. After converting the entire date, we created a new column called <b>year</b> that only stores the year of the <b>newdate</b>. We then use this column to filter out any years other than 2020, 2021, and 2022 in order to narrow our data set.
+<br><br>
+When creating our graphs, we concluded that a line graph would best summarize this data because it tracks numbers of time and is read easily by the average consumer. However, we also wanted to represent all the data set variables so that advanced audiences could benefit as well. Because of this, we created a Candle Stick graph with a line graph laid behind it. It is simple, yet very effective at communicating results. The candle stick graph is a more advanced way to interpret stock market data and is geared towards expects in the field, since it displays four data points and conveys nearly the entire data set. These graphs leverage the plotly package and highlight the monthly trends. Users may interact with the graph and use the slider at the bottom to zoom in for better and easier analysis. Values represented in the Candle Stick chart include the following: High price, Low price, Open price, and Closing price. For readers who would like a simplified summary, refer to the line graph which displays the trends in each company. View the <b>CODE</b> section to better understand the chart, if necessary.
+<br><br>
+Candlestick graphs are a type of financial chart used to represent the movement of an asset's price over time. They consist of a series of candle-shaped bars that represent the opening, closing, high, and low prices of an asset over a specified period. To conduct our study, each candlestick represents price movement of a stock over a month period. 
+<br><br>
+Each candlestick has two main parts: the body and the wick. The body represents the difference between the opening and closing prices of the asset and the beginning and end of each month, while the wick (or shadow) represents the range between the high and low prices during the month. If the closing price is higher than the opening price, the body is usually colored green and if the closing price is lower than the opening price, the body is usually colored red.
+<br><br>
+To read candlestick graphs, one needs to focus on the patterns formed by the candlesticks. For example, a long green candlestick indicates that the price of the asset increased significantly during the period, while a long red candlestick indicates that the price decreased significantly. A small body with long wicks indicates a period of indecision, where neither buyers nor sellers had the upper hand.")),
+                                   br(),
+                                   br(),
+                                   h1("Question 2: Are there any major trends in Apple, Microsoft, and Samsung stocks between 2007-2009?"),
+                                   div(style = "margin-bottom: 85px;"),
+                                   sidebarLayout(
+                                     sidebarPanel(
+                                       radioButtons("stock2", "Select a stock:",
+                                                    choices = c("Apple", "Microsoft", "Samsung"),
+                                                    selected = "Apple"),
+                                       checkboxInput("colorblind2", "Colorblind-friendly option", value = FALSE),
+                                       actionButton("toggle_code2", "Toggle Question 2 Graph Code")
+                                     ),
+                                     mainPanel(
+                                       plotlyOutput("stock_graph2", height = "600px"),
+                                       verbatimTextOutput("code_text2")
+                                     )
+                                   ),
+                                   br(),
+                                   br(),
+                                   h2("Case Study Analysis", align = "justified"),
+                                   tableOutput("TableQuestion2"),
+                                   tags$blockquote(style = "text-align: justify;", HTML(
+                                     "After seeing how the government and Apple, Microsoft, and Samsung handled the Coronavirus pandemic as well as their marketing tactics beforehand, one related question to ask was how these companies responded during the era of the Great Depression. The great recession was an economic downturn caused by the housing market bubble in the United States that eventually burst, which led to a widespread collapse of financial institutions and a sharp decline in economic activity worldwide. In 2009, Obama came into office and implemented the American Recovery and Investment Act which basically put 831 billion dollars into jumpstarting the economy. Through the creation of new jobs and increased funding into STEM, Obama was able to bring the economy back to previous levels before the great recession. As a result, one of the major trends discovered through the analysis of the charts was the power that the government has over the economy similar to the first set of graphs. Additionally, product releases and announcements often seem to be the cause of rises in stock prices.",
+                                     "<br><br>",
+                                     "Unlike Microsoft and Samsung, which had consistently declining high values during the great recession, Apple seemed to have a number of spikes in their highs during the great recession. The two main reasons that this could have occurred are the release of the first-generation iPhone and iPhone 3G. The first generation iPhone was released in June 2007 and sold over 1 million units, which matches the sharp increase in Apple’s stock high in 2007. Similarly, the release of the iPhone 3G had similar results, selling over one million units in the first weekend. As a result, the stock highs of Apple in 2008 reached nearly the same highs in 2007. Afterward, the trend followed similarly to both Samsung and Microsoft, decreasing heavily in stock value until the beginning of 2009, after Obama came into office and enacted the American Recovery and Investment Act. The rise and fall of stock highs and overall stock match our candlestick graphs as well. There was a rise in the monthly closing prices from March (most likely due to buzz about the iPhone) through the end of 2007 (3.31 to 7.07 stock closing price) and from March 2008 to August 2008 (5.13 to 6.74 stock closing price) due to the releases of the first generation iPhone and the iPhone 3G, respectively.",
+                                     "<br><br>",
+                                     "Unlike Apple and Samsung, Microsoft had a sharp increase in stock highs in late 2007 and early 2008 before slowly decreasing until early 2009. Although there were no significant product releases/changes in late 2007, Microsoft Vista and Office were released in January 2007, which could have led to more sales in late 2007 and the subsequent increase in stock highs. This can also be seen within the candlestick graph, with only one major increase in closing price in October of 2007 (36.86 stock closing price).",
+                                     "<br><br>",
+                                     "Samsung had a sharp increase in stock value near the middle of 2008. As oneof the world’s top memory chip manufacturers at the time, it invested around 900 million dollars into upgrading memory lines in May of 2008 which is one of the likely causes of the stock price rising. Furthermore, Samsung had aimed to increase sales of TVs by 56 percent in 2008, which could also be a cause of the early increase in stock highs. This is seen in the closing prices for our candlestick chart from April 2008 to June 2008 where the closing stock prices gradually increased from 12.46k to 14.82k. However, similar to Apple and Microsoft, it experienced the same economic downfall due to the global recession. One thing to note is that even though Samsung is a Korean company, it seems to have experienced the same economic upturn after Obama came into office and passed his economic reforms.",
+                                     "<br><br>",
+                                     "In essence, similar to how government interference influences the stock market in question 1, the introduction of the American Recovery and Investment Act was a major boost to the economic recovery of Apple, Microsoft, and Samsung. Additionally, major actions taken by the companies such as the release of a new product always seem to improve the stock value both before and after the product is released. However, similar to the first problem, there does not seem to be an ultimate winning strategy to investing in these companies. Instead, it seems that stockholders should focus on government actions, as well as important information on product releases or announcements as clues to when stock prices will rise."))
+                            )
+                          ),
+                 ),
+                 
+                 # ------------------------------------------------------------------------
+                 
+                 tabPanel("Conclusion",
+                          mainPanel(
+                            tableOutput("trendTable"),
+                            h1("Conclusion", align = "justified"),
+                            tags$blockquote(style = "text-align: justify;", HTML("After a deep analysis and case study of three unique technology companies, Apple, Microsoft, and Samsung, findings reveal that each have their own trends in the performance of their stocks; this holds for both previous years and recent years.
+
+A common theme that was drawn from the analysis was the gravity of product launches and company events on respect stock performances. If and when deciding on which company to invest, investors should be mindful of these events and how they may impact the company. For example, Apple release of its annual iPhone launch every September/October, Microsoft’s consistent rollout of products under the Surface, Xbox, Minecraft, etc. lineups, and Samsung’s debut of new innovating products at the Consumer Electronics Show (CES) are noteworthy events that may influence and fluctuate stock prices.
+<br><br>
+By considering these events, stakeholders and investors may make more safe and informed decisions rather than blindly investing in a company. In addition, it’s crucial for stakeholders. Moreover, stockholders should take into account government action and the time when to sell or buy more stock based on that information. This can lead to better investment results and overall outcomes. 
+                                                                                 <br><br>
+                                                                                 Moreover, global crisis can lead to shifts in stock investor behavior. For example during COVID, many stock investors were unsure of where the stock market was heading and many hedge funds dumped tech stocks such as Apple, Microsoft, and Samsung, in a chance that the economy would fail. Shortly, many investors followed suit as they saw massive dumps in their tech stocks and were afraid of the current state of the stock market, particularly in the tech sector. By staying informed about ongoing crises and understanding how they might affect the companies they have invested in, stockholders can make better decisions about when to buy, sell, or hold their stocks. Furthermore, they can diversify their portfolios to minimize the potential risks associated with such events.
+                                                                                 <br><br>
+                                                                                 In conclusion, by reviewing the company-specific trend patterns, findings suggested that each company has their own pattern which can be affected by product launches and external factors (government action, crashes, etc)."))
+                          )
+                          
+                 ),
+                 
+                 # ------------------------------------------------------------------------
+                 
+                 tabPanel("Code",
+                          mainPanel(
+                            h3("Code for Library Imports"),
+                            verbatimTextOutput("code_text"),
+                            actionButton("toggle_code", "Toggle Import Code"),
+                            br(),
+                            br(),
+                            h3("Code for Data Cleaning"),
+                            verbatimTextOutput("code_text_cleaning"),
+                            actionButton("toggle_code_cleaning", "Toggle Data Cleaning Code"),
+                            br(),
+                            br(),
+                            h3("Code for EDA"),
+                            verbatimTextOutput("code_EDA"),
+                            actionButton("toggle_code_EDA", "Toggle EDA Code"),
+                            br(),
+                            br()
+                          )
+                 ),
+                 
+                 # ------------------------------------------------------------------------
+                 
+                 tabPanel("Citations",
+                          mainPanel(
+                            h3("Citations"),
+                            tags$ul(
+                              tags$li(tags$a(href = "https://www.gsmarena.com/samsung_schedules_an_online_ces_2021_event_for_january_11-news-46647.php", "Samsung")),
+                              tags$li(tags$a(href = "https://www.verizon.com/articles/Smartphones/milestones-in-history-of-apple-iphone/", "Verizon")),
+                              tags$li(tags$a(href = "https://www.apple.com/newsroom/2008/07/14Apple-Sells-One-Million-iPhone-3Gs-in-First-Weekend/", "Apple")),
+                              tags$li(tags$a(href = "https://www.cnbc.com/2007/07/20/microsoft-fourth-quarter-profit-up-7-in-spite-of-xbox-charge.html", "CNBC")),
+                              tags$li(tags$a(href = "https://news.microsoft.com/2007/01/29/microsoft-launches-windows-vista-and-microsoft-office-2007-to-consumers-worldwide/", "Microsoft")),
+                              tags$li(tags$a(href = "https://www.google.com/url?q=https://www.reuters.com/article/us-samsung-investment/samsung-to-invest-902-mln-in-memory-lines-in-2008-idUSSEO14276520080526&sa=D&source=docs&ust=1678724590100815&usg=AOvVaw0WML1CSVBgREAc0DY8BlGv", "Reuters 1")),
+                              tags$li(tags$a(href = "https://www.nytimes.com/2008/03/28/business/worldbusiness/28iht-28samsung.11491981.html", "New York Times")),
+                              tags$li(tags$a(href = "https://www.reuters.com/article/samsung-earnings/update-1-samsung-elec-sees-q2-op-profit-of-up-to-2-6-trln-won-idINSEO32442420090706", "Reuters 2")),
+                              tags$li(tags$a(href = "https://www.reuters.com/article/us-show-samsung/samsung-bets-on-growth-despite-u-s-slowdown-idUSSEO21911320080108", "Reuters 3")),
+                              tags$li(tags$a(href = "https://bookdown.org/yihui/rmarkdown-cookbook/fold-show.html", "Bookdown"))
+                            )
+                          )
+                 ),
+                 
+                 theme = shinytheme("sandstone"),
+)
+
+
+
+# ------------------------------------------------------------------------
+
+# Introduction Tables
+myTableData <- data.frame(
+  DataSet = c("apple.csv",
+              "MicroSoft.csv",
+              "Samsung.csv"),
+  Link = c("https://www.kaggle.com/datasets/ranugadisansagamage/apple-stocks",
+           "https://www.kaggle.com/datasets/ranugadisansagamage/microsoft-stocks",
+           "https://www.kaggle.com/datasets/ranugadisansagamage/samsung-stocks"),
+  DateAccessed = c("Accessed March 1st, 2023", "Accessed March 1st, 2023", "Accessed March 1st, 2023")
+)
+
+summary_stat_table <- data.frame(
+  x = c("Minimum", "1st Quartile", "Median", "Mean", "3rd Quartile", "Max"),
+  Open = c("$0.0497", "$0.2835", "$0.4732", "$14.5280", "$14.5318", "182.6300"),
+  High = c("$0.0497", "$0.2891", "$0.4821", "$14.6873", "$14.6189", "$182.9400"),
+  Low = c("$0.0491", "$0.2759", "$0.4643", "$14.3673", "$14.3414", "$129.1200"),
+  AdjustedClose = c("$0.0383", "$0.2353", "$0.3896", "$13.8981", "$12.5561", "$181.5117"),
+  Volume = c("$0.000e+00", "$1.241e+08", "$2.187e+08", "$3.313e+08", "$4.115e+08", "$7.422e+09")
+)
+
+# ------------------------------------------------------------------------
+
+# Question 1 Table
+TableQuestion1 <- data.frame(
+  Company = c("Apple", "Microsoft", "Samsung"),
+  Minimum = c("$57.12", "$140.57", "$43550"),
+  MinimumDate = c("March 3rd, 2023", "March 3rd, 2023", "March 3rd, 2023"),
+  Maximum = c("$182.94", "$349.67", "$96800"),
+  MaximumDate = c("January 4th, 2022", "November 22nd, 2021", "January 11th, 2021"),
+  PercentIncrease = c("320.27%", "248.75%", "222.27%")
+)
+
+# ------------------------------------------------------------------------
+
+# Question 2 Table
+TableQuestion2 <- data.frame(
+  Company = c("Apple", "Microsoft", "Samsung"),
+  Trends = c("Characterized by a number of spikes late 2007", "Characterized by a sharp increase late 2007/early 2008", "Characterized by a sharp increased mid 2008")
+)
+
+# ------------------------------------------------------------------------
+server <- function(input, output, session) {
+  
+  output$summary_stat_table <- renderTable({
+    summary_stat_table
+  }, rownames = FALSE)
+  
+  output$myTable <- renderTable({
+    myTableData
+  }, rownames = FALSE)
+  
+  output$TableQuestion1 <- renderTable({
+    TableQuestion1
+  }, rownames = FALSE)
+  
+  output$TableQuestion2 <- renderTable({
+    TableQuestion2
+  }, rownames = FALSE)
+  
+  # ------------------------------------------------------------------------
+  
+  # Render Plotly chart for Question 1
+  output$stock_graph <- renderPlotly({
+    # ... (Code for selecting the appropriate chart for Question 1) ...
+    if (input$stock == "apple" & !input$colorblind) {
+      chart <- apple_line_chart_default
+    } else if (input$stock == "apple" & input$colorblind) {
+      chart <- apple_line_chart_colorblind
+    } else if (input$stock == "microsoft" & !input$colorblind) {
+      chart <- microsoft_line_chart_default
+    } else if (input$stock == "microsoft" & input$colorblind) {
+      chart <- microsoft_line_chart_colorblind
+    } else if (input$stock == "samsung" & !input$colorblind) {
+      chart <- samsung_line_chart_default
+    } else {
+      chart <- samsung_line_chart_colorblind
+    }
+    
+    chart
+  })
+  
+  # ------------------------------------------------------------------------
+  
+  # Render Plotly chart for Question 2
+  output$stock_graph2 <- renderPlotly({
+    # ... (Code for selecting the appropriate chart for Question 2) ...
+    if (input$stock2 == "Apple" & !input$colorblind2) {
+      chart2 <- apple_line_chart_default2
+    } else if (input$stock2 == "Apple" & input$colorblind2) {
+      chart2 <- apple_line_chart_colorblind2
+    } else if (input$stock2 == "Microsoft" & !input$colorblind2) {
+      chart2 <- microsoft_line_chart_default2
+    } else if (input$stock2 == "Microsoft" & input$colorblind2) {
+      chart2 <- microsoft_line_chart_colorblind2
+    } else if (input$stock2 == "Samsung" & !input$colorblind2) {
+      chart2 <- samsung_line_chart_default2
+    } else {
+      chart2 <- samsung_line_chart_colorblind2
+    }
+    
+    chart2
+  })
+  
+  # ------------------------------------------------------------------------
+  
+  output$background_graph <- renderPlot({
+    # EDA Data frame now includes Month, Day, and Year column
+    EDA <- apple_date_time
+    EDA$month = month(EDA$newdate)
+    EDA$day = day(EDA$newdate)
+    
+    drop <- c("Date", "Volume", "newdate", "year", "month", "day")
+    
+    # Filter it for March 17th, 2022
+    EDA <- EDA %>%
+      filter(month == 3 & day == 17 & year == 2022) %>%
+      select(-c(drop)) %>%
+      gather(key = "Indicators", value = "Dollars")
+    
+    # Create the Chart
+    ggplot(EDA, aes(x = reorder(Indicators, -Dollars), y = Dollars, fill = Indicators)) +
+      geom_bar(stat = "identity") +
+      labs(x = "Stock Price Indicators", y = "Dollars", title = "March 17th, 2022: Apple Stock Price Statistics") +
+      theme_bw() +
+      scale_fill_manual(values = c("#9AC4F8", "#5D5E60", "#E03616", "#EBCCAB", "#99B668"))
+  })
+  
+  code_visibility <- reactiveVal(FALSE)
+  
+  output$code_text <- renderPrint({
+    if (code_visibility()) {
+      code <- '
+
+      '
+      cat(code)
+    }
+  })
+  
+  # ------------------------------------------------------------------------
+  
+  
+  code_visibility <- reactiveVal(FALSE)
+  
+  output$code_text <- renderPrint({
+    if (code_visibility()) {
+      code <- 
+        '# Load Applicable Libraries   
+library(tidyverse)
+library(dplyr)
+library(lubridate)
+library(plotly)
+library(foreign)
+library(ggplot2)
+library(shiny)
+library(knitr)'
+      cat(code)
+    }
+  })
+  
+  observeEvent(input$toggle_code, {
+    code_visibility(!code_visibility())
+  })
+  
+  code_visibility_cleaning <- reactiveVal(FALSE)
+  
+  output$code_text_cleaning <- renderPrint({
+    if (code_visibility_cleaning()) {
+      code_cleaning <- 
+        '# Importing our Data Set
+apple <- read.csv("apple.csv")
+microsoft <- read.csv("MicroSoft.csv")
+samsung <- read.csv("Samsung.csv")
+
+# ----------------------------------------------------------
+# Manipulating the data sets by leveraging the lubridate package in order to track stocks over time:
+
+# Create a new column of the date for each observation
+apple_date_time <- apple
+apple_date_time$newdate = ymd(apple_date_time$Date)
+apple_date_time$year = year(apple_date_time$newdate)
+
+# Filter out observations from years 2020-2022
+apple_date_time <- apple_date_time %>%
+  filter(year == 2020 | year == 2021 | year == 2022)
+
+# ----------------------------------------------------------
+
+# Create a new column of the date for each observation
+microsoft_date_time <- microsoft
+microsoft_date_time$newdate = ymd(microsoft_date_time$Date)
+microsoft_date_time$year = year(microsoft_date_time$newdate)
+
+# Filter out observations from years 2020-2022
+microsoft_date_time <- microsoft_date_time %>%
+  filter(year == 2020 | year == 2021 |year == 2022)
+
+# ----------------------------------------------------------
+
+# Create a new column of the date for each observation
+samsung_date_time <- samsung
+samsung_date_time$newdate = ymd(samsung_date_time$Date)
+samsung_date_time$year = year(samsung_date_time$newdate)
+
+# Filter out observations from years 2020-2022
+samsung_date_time <- samsung_date_time %>%
+  filter(year == 2020 | year == 2021 |year == 2022)
+# ----------------------------------------------------------'
+      cat(code_cleaning)
+    }
+  })
+  
+  observeEvent(input$toggle_code_cleaning, {
+    code_visibility_cleaning(!code_visibility_cleaning())
+  })
+  
+  code_visibility_EDA <- reactiveVal(FALSE)
+  
+  output$code_EDA <- renderPrint({
+    if (code_visibility_EDA()) {
+      code_EDA <- '
+# EDA Data frame now includes Month, Day, and Year column
+EDA <- apple_date_time
+EDA$month = month(EDA$newdate)
+EDA$day = day(EDA$newdate)
+
+drop <- c("Date", "Volume", "newdate", "year", "month", "day")
+
+# Filter it for March 17th, 2022
+EDA <- EDA %>%
+  filter(month == 3 & day == 17 & year == 2022) %>%
+  select(-c(drop))%>%
+  gather(key = "Indicators", value = "Dollars")
+
+# Create the Chart
+ggplot(EDA, aes(x = reorder(Indicators, -Dollars), y = Dollars, fill = Indicators)) +
+  geom_bar(stat = "identity") +
+  labs(x = "Stock Price Indicators", y = "Dollars", title = "March 17th, 2022: Apple Stock Price Statistics") +
+  theme_bw() +
+  scale_fill_manual(values = c("#FFE2D1", "#E1F0C4", "#6BAB90", "#0D5C63", "#5E4C5A"))
+      '
+      cat(code_EDA)
+    }
+  })
+  
+  observeEvent(input$toggle_code_EDA, {
+    code_visibility_EDA(!code_visibility_EDA())
+  })
+  
+  code_visibility1 <- reactiveVal(FALSE)
+  code_visibility2 <- reactiveVal(FALSE)
+  
+  output$code_text1 <- renderPrint({
+    if (code_visibility1()) {
+      code1 <- '
+  range_buttons <- list(
+  list(count = 1, label = "1 mo", step = "month", stepmode = "backward"),
+  list(count = 3, label = "3 mo", step = "month", stepmode = "backward"),
+  list(count = 6, label = "6 mo", step = "month", stepmode = "backward"),
+  list(count = 1, label = "1 yr", step = "year", stepmode = "backward"),
+  list(step = "all")
+)
+
+# Function to create the chart with specified colors
+create_chart <- function(data, title, increasing_color, decreasing_color, line_color) {
+  chart <- plot_ly(data, type = "candlestick",
+                   x = ~month,
+                   open = ~open, close = ~close,
+                   high = ~high, low = ~low, name = "Price",
+                   increasing = list(line = list(color = increasing_color), fillcolor = increasing_color),
+                   decreasing = list(line = list(color = decreasing_color), fillcolor = decreasing_color)) %>%
+    add_lines(x = ~month, y = ~high, name = "High Price",
+              line = list(color = line_color)) %>%
+    layout(xaxis = list(rangeselector = list(buttons = range_buttons),
+                        type = "date", title = "Month",
+                        rangeslider = list(type = "date")),
+           yaxis = list(title = "High Price"),
+           title = title)
+  return(chart)
+}
+
+# Create chart definitions with default colors
+apple_line_chart_default <- create_chart(apple_monthly, "Apple Stock Price Movement 2020 - 2022", "green", "red", "blue")
+microsoft_line_chart_default <- create_chart(microsoft_monthly, "Microsoft Stock Price Movement 2020 - 2022", "green", "red", "blue")
+samsung_line_chart_default <- create_chart(samsung_monthly, "Samsung Stock Price Movement 2020 - 2022", "green", "red", "blue")
+
+# Create chart definitions with colorblind-friendly colors
+apple_line_chart_colorblind <- create_chart(apple_monthly, "Apple Stock Price Movement 2020 - 2022", "#009E73", "#D55E00", "#56B4E9")
+microsoft_line_chart_colorblind <- create_chart(microsoft_monthly, "Microsoft Stock Price Movement 2020 - 2022", "#009E73", "#D55E00", "#56B4E9")
+samsung_line_chart_colorblind <- create_chart(samsung_monthly, "Samsung Stock Price Movement 2020 - 2022", "#009E73", "#D55E00", "#56B4E9")
+      '
+    cat(code1)
+    }
+  })
+
+observeEvent(input$toggle_code1, {
+  code_visibility1(!code_visibility1())
+})
+
+output$code_text2 <- renderPrint({
+  if (code_visibility2()) {
+    code2 <- '
+# ------------------------------------------------------------------------
+      
+# Create Year
+apple_time <- apple
+apple_time$newdate = ymd(apple_time$Date)
+apple_time$year = year(apple_time$newdate)
+
+# Filter Year (2007 - 2009)
+apple_filtered_data <- apple_time %>% 
+  filter(year >= 2007 & year <= 2009)
+
+apple_filtered_data$Date <- as.Date(apple_filtered_data$Date)
+
+# Summarize
+apple_monthly2 <- apple_filtered_data %>%
+  mutate(month = format(Date, "%Y-%m")) %>%
+  group_by(month) %>%
+  summarize(open = first(Open),
+            high = max(High),
+            low = min(Low),
+            close = last(Close))
+
+# ------------------------------------------------------------------------
+
+# Create Year
+microsoft_time <- microsoft
+microsoft_time$newdate = ymd(microsoft_time$Date)
+microsoft_time$year = year(microsoft_time$newdate)
+
+# Filter Year (2007 - 2009)
+microsoft_filtered_data <- microsoft_time %>% 
+  filter(year >= 2007 & year <= 2009)
+
+microsoft_filtered_data$Date <- as.Date(microsoft_filtered_data$Date)
+
+# Summarize
+microsoft_monthly2 <- microsoft_filtered_data %>%
+  mutate(month = format(Date, "%Y-%m")) %>%
+  group_by(month) %>%
+  summarize(open = first(Open),
+            high = max(High),
+            low = min(Low),
+            close = last(Close))
+
+# ------------------------------------------------------------------------
+
+# Create Year
+samsung_time <- samsung
+samsung_time$newdate = ymd(samsung_time$Date)
+samsung_time$year = year(samsung_time$newdate)
+
+# Filter Year (2007 - 2009)
+samsung_filtered_data <- samsung_time %>% 
+  filter(year >= 2007 & year <= 2009)
+
+samsung_filtered_data$Date <- as.Date(samsung_filtered_data$Date)
+
+# Summarize
+samsung_monthly2 <- samsung_filtered_data %>%
+  mutate(month = format(Date, "%Y-%m")) %>%
+  group_by(month) %>%
+  summarize(open = first(Open),
+            high = max(High),
+            low = min(Low),
+            close = last(Close))
+
+# ------------------------------------------------------------------------
+
+# Create the buttons on the interactive chart
+range_buttons <- list(
+  list(count = 1, label = "1 mo", step = "month", stepmode = "backward"),
+  list(count = 3, label = "3 mo", step = "month", stepmode = "backward"),
+  list(count = 6, label = "6 mo", step = "month", stepmode = "backward"),
+  list(count = 1, label = "1 yr", step = "year", stepmode = "backward"),
+  list(step = "all")
+)
+
+# ------------------------------------------------------------------------
+
+# Function to create the chart with specified colors
+create_chart2 <- function(data, title, increasing_color, decreasing_color, line_color) {
+  chart2 <- plot_ly(data, type = "candlestick",
+                   x = ~month,
+                   open = ~open, close = ~close,
+                   high = ~high, low = ~low, name = "Price",
+                   increasing = list(line = list(color = increasing_color), fillcolor = increasing_color),
+                   decreasing = list(line = list(color = decreasing_color), fillcolor = decreasing_color)) %>%
+    add_lines(x = ~month, y = ~high, name = "High Price",
+              line = list(color = line_color)) %>%
+    layout(xaxis = list(rangeselector = list(buttons = range_buttons, x = 0, y = 1.5),
+                        type = "date", title = "Month",
+                        rangeslider = list(type = "date")),
+           yaxis = list(title = "High Price"),
+           title = title)
+  return(chart2)
+}
+
+
+# ------------------------------------------------------------------------
+
+# Create chart definitions with default colors
+apple_line_chart_default2 <- create_chart(apple_monthly2, "Apple Stock Price Movement 2007 - 2009", "green", "red", "blue")
+microsoft_line_chart_default2 <- create_chart(microsoft_monthly2, "Microsoft Stock Price Movement 2007 - 2009", "green", "red", "blue")
+samsung_line_chart_default2 <- create_chart(samsung_monthly2, "Samsung Stock Price Movement 2007 - 2009", "green", "red", "blue")
+
+# Create chart definitions with colorblind-friendly colors
+apple_line_chart_colorblind2 <- create_chart(apple_monthly2, "Apple Stock Price Movement 2007 - 2009", "#009E73", "#D55E00", "#56B4E9")
+microsoft_line_chart_colorblind2 <- create_chart(microsoft_monthly2, "Microsoft Stock Price Movement 2007 - 2009", "#009E73", "#D55E00", "#56B4E9")
+samsung_line_chart_colorblind2 <- create_chart(samsung_monthly2, "Samsung Stock Price Movement 2007 - 2009", "#009E73", "#D55E00", "#56B4E9")
+
+# ------------------------------------------------------------------------
+      '
+  cat(code2)
+  }
+})
+
+observeEvent(input$toggle_code2, {
+  code_visibility2(!code_visibility2())
+})
+
+
+}
+
+# ------------------------------------------------------------------------
+
+
+# Run the Shiny App
+shinyApp(ui = ui, server = server)
+```
